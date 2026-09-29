@@ -83,7 +83,7 @@ const Indicator = GObject.registerClass(
             super(0.5, 'Claude Usage');
 
             this._icon = new St.Icon({
-                gicon: Gio.FileIcon.new(extension.dir.resolve_relative_path('icons/claude-usage-symbolic.svg')),
+                icon_name: 'power-profile-performance-symbolic',
                 style_class: 'system-status-icon claude-usage-icon',
             });
             this.add_child(this._icon);
