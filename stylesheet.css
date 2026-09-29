@@ -1,0 +1,39 @@
+.claude-usage-limit,
+.claude-usage-status {
+  width: 20em;
+}
+
+.claude-usage-limit {
+  spacing: 6px;
+}
+
+.claude-usage-title {
+  font-weight: bold;
+}
+
+.claude-usage-reset {
+  font-size: 0.9em;
+}
+
+.claude-usage-bar {
+  -barlevel-height: 6px;
+  -barlevel-background-color: rgba(127, 127, 127, 0.3);
+  -barlevel-active-background-color: -st-accent-color;
+  -barlevel-overdrive-color: -st-accent-color;
+}
+
+.claude-usage-bar.warning {
+  -barlevel-active-background-color: #e5a50a;
+}
+
+.claude-usage-bar.critical {
+  -barlevel-active-background-color: #e01b24;
+}
+
+.claude-usage-icon.warning {
+  color: #e5a50a;
+}
+
+.claude-usage-icon.critical {
+  color: #e01b24;
+}

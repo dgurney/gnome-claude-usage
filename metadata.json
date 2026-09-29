@@ -1,0 +1,6 @@
+{
+  "uuid": "claude-usage@gurney.dev",
+  "name": "Claude Usage",
+  "description": "Shows how much of your Claude plan's usage limits is left and when they reset. Uses the sign-in stored by Claude Code.",
+  "shell-version": ["51"]
+}
