@@ -33,10 +33,22 @@
   -barlevel-active-background-color: #e01b24;
 }
 
-.claude-usage-icon.warning {
+.claude-usage-panel {
+  spacing: 10px;
+}
+
+.claude-usage-panel-limit {
+  spacing: 4px;
+}
+
+.claude-usage-panel-label {
+  font-size: 0.85em;
+}
+
+.claude-usage-panel-percent.warning {
   color: #e5a50a;
 }
 
-.claude-usage-icon.critical {
+.claude-usage-panel-percent.critical {
   color: #e01b24;
 }

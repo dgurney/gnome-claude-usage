@@ -82,14 +82,29 @@ const RESPONSE = {
         },
     ],
 };
-const SESSION = {title: 'Current session', utilization: 37, resetsAt: Date.parse('2026-09-29T18:30:00.123Z')};
-const WEEK = {title: 'Current week (all models)', utilization: 12.5, resetsAt: Date.parse('2026-10-02T09:00:00Z')};
-const FABLE = {title: 'Current week (Fable)', utilization: 55, resetsAt: Date.parse('2026-10-02T09:00:00Z')};
+const SESSION = {
+    title: 'Current session',
+    panelLabel: '5h',
+    utilization: 37,
+    resetsAt: Date.parse('2026-09-29T18:30:00.123Z'),
+};
+const WEEK = {
+    title: 'Current week (all models)',
+    panelLabel: '7d',
+    utilization: 12.5,
+    resetsAt: Date.parse('2026-10-02T09:00:00Z'),
+};
+const FABLE = {
+    title: 'Current week (Fable)',
+    panelLabel: null,
+    utilization: 55,
+    resetsAt: Date.parse('2026-10-02T09:00:00Z'),
+};
 
 check('parse usage on a Max plan', parseUsage(RESPONSE, 'max'), [
     SESSION,
     WEEK,
-    {title: 'Current week (Sonnet only)', utilization: 0, resetsAt: null},
+    {title: 'Current week (Sonnet only)', panelLabel: null, utilization: 0, resetsAt: null},
     FABLE,
 ]);
 check('parse usage on a Pro plan hides the Sonnet limit', parseUsage(RESPONSE, 'pro'), [SESSION, WEEK, FABLE]);
@@ -103,7 +118,14 @@ check(
         },
         'max'
     ),
-    [{title: 'Current week (all models)', utilization: 3, resetsAt: Date.parse('2026-10-02T09:00:00Z')}]
+    [
+        {
+            title: 'Current week (all models)',
+            panelLabel: '7d',
+            utilization: 3,
+            resetsAt: Date.parse('2026-10-02T09:00:00Z'),
+        },
+    ]
 );
 
 check('successful response', responseError(200, null), null);

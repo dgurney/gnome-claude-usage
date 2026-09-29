@@ -80,8 +80,9 @@ export function responseError(status, retryAfterHeader) {
     }
 }
 
-// Returns the usage limits as [{title, utilization, resetsAt}], where
-// utilization is the percentage used and resetsAt is in ms since the epoch.
+// Returns the usage limits as [{title, panelLabel, utilization, resetsAt}], where
+// panelLabel is the short label for the top bar, or null for limits not shown
+// there, utilization is the percentage used and resetsAt is in ms since the epoch.
 export async function fetchUsage(session, {accessToken, subscriptionType}, cancellable) {
     const message = Soup.Message.new('GET', USAGE_URL);
     message.request_headers.append('Authorization', `Bearer ${accessToken}`);
@@ -133,21 +134,27 @@ function parseTime(time) {
 
 export function parseUsage(data, subscriptionType) {
     const windows = [
-        ['five_hour', 'Current session'],
-        ['seven_day', 'Current week (all models)'],
+        ['five_hour', 'Current session', '5h'],
+        ['seven_day', 'Current week (all models)', '7d'],
     ];
     if (PLANS_WITH_SONNET_LIMIT.includes(subscriptionType)) {
-        windows.push(['seven_day_sonnet', 'Current week (Sonnet only)']);
+        windows.push(['seven_day_sonnet', 'Current week (Sonnet only)', null]);
     }
 
     const limits = windows
         .filter(([key]) => data[key] && data[key].utilization !== null)
-        .map(([key, title]) => ({title, utilization: data[key].utilization, resetsAt: parseTime(data[key].resets_at)}));
+        .map(([key, title, panelLabel]) => ({
+            title,
+            panelLabel,
+            utilization: data[key].utilization,
+            resetsAt: parseTime(data[key].resets_at),
+        }));
 
     for (const limit of data.limits ?? []) {
         if (limit.kind === 'weekly_scoped' && limit.scope?.model) {
             limits.push({
                 title: `Current week (${limit.scope.model.display_name})`,
+                panelLabel: null,
                 utilization: limit.percent,
                 resetsAt: parseTime(limit.resets_at),
             });

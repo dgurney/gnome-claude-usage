@@ -82,11 +82,8 @@ const Indicator = GObject.registerClass(
         constructor(extension) {
             super(0.5, 'Claude Usage');
 
-            this._icon = new St.Icon({
-                icon_name: 'power-profile-performance-symbolic',
-                style_class: 'system-status-icon claude-usage-icon',
-            });
-            this.add_child(this._icon);
+            this._panelBox = new St.BoxLayout({style_class: 'claude-usage-panel'});
+            this.add_child(this._panelBox);
 
             this._limitsSection = new PopupMenu.PopupMenuSection();
             this.menu.addMenuItem(this._limitsSection);
@@ -303,8 +300,7 @@ const Indicator = GObject.registerClass(
                 this._limitsSection.addMenuItem(new LimitItem(limit, now, use24h));
             }
 
-            const lowest = Math.min(100, ...(this._limits ?? []).map(limit => percentLeft(limit.utilization)));
-            this._icon.style_class = `system-status-icon claude-usage-icon ${usageLevel(lowest)}`;
+            this._renderPanel();
 
             if (this._renewing) {
                 this._statusItem.label.text = 'Renewing the Claude Code sign-in…';
@@ -316,6 +312,43 @@ const Indicator = GObject.registerClass(
                 this._statusItem.label.text = 'No usage limits reported';
             } else {
                 this._statusItem.label.text = `Updated ${formatClockTime(this._updatedAt, now, use24h)}`;
+            }
+        }
+
+        _renderPanel() {
+            this._panelBox.destroy_all_children();
+            const shown = (this._limits ?? []).filter(limit => limit.panelLabel !== null);
+            this._panelBox.opacity = this._error !== null && shown.length > 0 ? DIM_OPACITY : 255;
+            if (shown.length === 0) {
+                let text = 'Claude';
+                if (this._error !== null) {
+                    text += ' !';
+                } else if (this._limits === null) {
+                    text += ' …';
+                }
+                this._panelBox.add_child(new St.Label({text, y_align: Clutter.ActorAlign.CENTER}));
+                return;
+            }
+
+            for (const limit of shown) {
+                const left = percentLeft(limit.utilization);
+                const box = new St.BoxLayout({style_class: 'claude-usage-panel-limit'});
+                box.add_child(
+                    new St.Label({
+                        text: limit.panelLabel,
+                        style_class: 'claude-usage-panel-label',
+                        y_align: Clutter.ActorAlign.CENTER,
+                        opacity: DIM_OPACITY,
+                    })
+                );
+                box.add_child(
+                    new St.Label({
+                        text: `${left}%`,
+                        style_class: `claude-usage-panel-percent ${usageLevel(left)}`,
+                        y_align: Clutter.ActorAlign.CENTER,
+                    })
+                );
+                this._panelBox.add_child(box);
             }
         }
 
