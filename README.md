@@ -6,6 +6,9 @@ when each one resets. The menu also shows the status from
 [status.claude.com](https://status.claude.com) and any unresolved incidents.
 Click the status to open the status page.
 
+The usage and status refresh every 5 minutes, and when you open the menu if
+they're more than a minute old.
+
 It reuses the sign-in that [Claude Code](https://claude.com/claude-code) stores
 in `~/.claude/.credentials.json`, so you need to be signed in to Claude Code.
 
