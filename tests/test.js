@@ -1,5 +1,6 @@
 // Run with `make test`, which pins TZ and locale so clock times are deterministic.
 import {formatClockTime, formatDuration, formatReset, percentLeft, usageLevel} from '../format.js';
+import {parseServiceStatus} from '../status.js';
 import {RateLimitedError, SignInExpiredError, UsageError, parseSignIn, parseUsage, responseError} from '../usage.js';
 
 let failures = 0;
@@ -154,6 +155,26 @@ check(
         })
     ),
     NOT_SIGNED_IN
+);
+
+check(
+    'service status with an incident',
+    parseServiceStatus({
+        page: {id: 'tymt9n04zgry', name: 'Claude', url: 'https://status.claude.com'},
+        components: [{id: 'yyzkbfz2thpt', name: 'Claude Code', status: 'partial_outage'}],
+        incidents: [
+            {
+                id: 'abc123',
+                name: 'Elevated errors on Claude Code',
+                status: 'investigating',
+                impact: 'minor',
+                incident_updates: [{status: 'investigating', body: 'We are investigating.'}],
+            },
+        ],
+        scheduled_maintenances: [],
+        status: {indicator: 'minor', description: 'Partial System Outage'},
+    }),
+    {description: 'Partial System Outage', incidents: ['Elevated errors on Claude Code']}
 );
 
 if (failures > 0) {

@@ -1,7 +1,9 @@
 # Claude Usage
 
 A GNOME Shell 51 extension that adds a panel icon. Click it to see how much of
-each Claude usage limit is left and when it resets.
+each Claude usage limit is left and when it resets. The menu also shows the
+status from [status.claude.com](https://status.claude.com) and any unresolved
+incidents. Click the status to open the status page.
 
 It reuses the sign-in that [Claude Code](https://claude.com/claude-code) stores
 in `~/.claude/.credentials.json`, so you need to be signed in to Claude Code.

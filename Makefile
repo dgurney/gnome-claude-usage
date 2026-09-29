@@ -4,7 +4,7 @@ ZIP = $(UUID).shell-extension.zip
 .PHONY: pack install test clean
 
 pack:
-	gnome-extensions pack --force --extra-source=usage.js --extra-source=format.js --extra-source=icons .
+	gnome-extensions pack --force --extra-source=usage.js --extra-source=format.js --extra-source=status.js --extra-source=icons .
 
 install: pack
 	gnome-extensions install --force $(ZIP)

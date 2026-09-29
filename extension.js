@@ -12,6 +12,7 @@ import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 import {formatClockTime, formatReset, percentLeft, usageLevel} from './format.js';
+import {STATUS_PAGE_URL, fetchServiceStatus} from './status.js';
 import {
     CREDENTIALS_PATH,
     RateLimitedError,
@@ -32,6 +33,12 @@ const DIM_OPACITY = 180;
 
 function isCancelled(error) {
     return error instanceof GLib.Error && error.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED);
+}
+
+function wrappedLabel(text, props = {}) {
+    const label = new St.Label({text, ...props});
+    label.clutter_text.line_wrap = true;
+    return label;
 }
 
 const LimitItem = GObject.registerClass(
@@ -88,6 +95,18 @@ const Indicator = GObject.registerClass(
             this._statusItem.label.add_style_class_name('claude-usage-status');
             this._statusItem.label.clutter_text.line_wrap = true;
             this.menu.addMenuItem(this._statusItem);
+            this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+            this._serviceItem = new PopupMenu.PopupBaseMenuItem();
+            this._serviceBox = new St.BoxLayout({
+                orientation: Clutter.Orientation.VERTICAL,
+                style_class: 'claude-usage-service',
+                x_expand: true,
+            });
+            this._serviceItem.add_child(this._serviceBox);
+            this._serviceItem.connect('activate', () => {
+                Gio.AppInfo.launch_default_for_uri(STATUS_PAGE_URL, global.create_app_launch_context(0, -1));
+            });
+            this.menu.addMenuItem(this._serviceItem);
 
             this._interfaceSettings = new Gio.Settings({schema_id: 'org.gnome.desktop.interface'});
             this._session = new Soup.Session({user_agent: extension.uuid, timeout: HTTP_TIMEOUT_SECONDS});
@@ -102,6 +121,10 @@ const Indicator = GObject.registerClass(
             // {token, until, error}: the access token the server last rejected or
             // rate limited, which isn't sent again until `until`.
             this._blocked = null;
+            this._serviceStatus = null;
+            this._serviceCheckedAt = null;
+            this._serviceError = null;
+            this._checkingService = false;
 
             this._credentialsMonitor = Gio.File.new_for_path(CREDENTIALS_PATH).monitor_file(
                 Gio.FileMonitorFlags.NONE,
@@ -123,18 +146,74 @@ const Indicator = GObject.registerClass(
                     return;
                 }
                 this._render();
+                this._renderServiceStatus();
                 if (this._updatedAt === null || Date.now() - this._updatedAt > REFRESH_ON_OPEN_AFTER_MS) {
                     this._refresh();
+                }
+                if (this._serviceCheckedAt === null || Date.now() - this._serviceCheckedAt > REFRESH_ON_OPEN_AFTER_MS) {
+                    this._refreshServiceStatus();
                 }
             });
 
             this._timerId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, REFRESH_INTERVAL_SECONDS, () => {
                 this._refresh();
+                this._refreshServiceStatus();
                 return GLib.SOURCE_CONTINUE;
             });
 
             this._render();
             this._refresh();
+            this._renderServiceStatus();
+            this._refreshServiceStatus();
+        }
+
+        async _refreshServiceStatus() {
+            if (this._checkingService) {
+                return;
+            }
+            this._checkingService = true;
+            try {
+                this._serviceStatus = await fetchServiceStatus(this._session, this._cancellable);
+                this._serviceCheckedAt = Date.now();
+                this._serviceError = null;
+            } catch (e) {
+                if (isCancelled(e)) {
+                    return;
+                }
+                console.error(e);
+                this._serviceError = e;
+            } finally {
+                this._checkingService = false;
+            }
+            this._renderServiceStatus();
+        }
+
+        _renderServiceStatus() {
+            const labels = [];
+            if (this._serviceStatus !== null) {
+                labels.push(wrappedLabel(this._serviceStatus.description));
+                for (const incident of this._serviceStatus.incidents) {
+                    labels.push(wrappedLabel(incident, {style_class: 'claude-usage-incident', opacity: DIM_OPACITY}));
+                }
+            }
+            if (this._serviceError !== null) {
+                let text = `Couldn't check the Claude status: ${this._serviceError.message}.`;
+                if (this._serviceStatus !== null) {
+                    const now = Date.now();
+                    const use24h = this._interfaceSettings.get_string('clock-format') === '24h';
+                    text += ` Showing the status from ${formatClockTime(this._serviceCheckedAt, now, use24h)}.`;
+                }
+                labels.push(wrappedLabel(text));
+            }
+            if (labels.length === 0) {
+                labels.push(wrappedLabel('Checking the Claude status…'));
+            }
+
+            this._serviceBox.destroy_all_children();
+            for (const label of labels) {
+                this._serviceBox.add_child(label);
+            }
+            this._serviceItem.label_actor = labels[0];
         }
 
         async _refresh() {

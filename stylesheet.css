@@ -1,9 +1,11 @@
 .claude-usage-limit,
-.claude-usage-status {
+.claude-usage-status,
+.claude-usage-service {
   width: 20em;
 }
 
-.claude-usage-limit {
+.claude-usage-limit,
+.claude-usage-service {
   spacing: 6px;
 }
 
@@ -11,7 +13,8 @@
   font-weight: bold;
 }
 
-.claude-usage-reset {
+.claude-usage-reset,
+.claude-usage-incident {
   font-size: 0.9em;
 }
 
