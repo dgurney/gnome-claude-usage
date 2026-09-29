@@ -8,10 +8,12 @@ export function formatDuration(ms) {
     const hours = Math.floor(totalMinutes / 60) % 24;
     const minutes = totalMinutes % 60;
 
-    if (days > 0)
+    if (days > 0) {
         return `${days}d ${hours}h`;
-    if (hours > 0)
+    }
+    if (hours > 0) {
         return `${hours}h ${minutes}m`;
+    }
     return `${minutes}m`;
 }
 
@@ -26,10 +28,12 @@ export function formatClockTime(time, now, use24h) {
 }
 
 export function formatReset(resetsAt, now, use24h) {
-    if (resetsAt === null)
+    if (resetsAt === null) {
         return 'No reset scheduled';
-    if (resetsAt <= now)
+    }
+    if (resetsAt <= now) {
         return 'Resetting now';
+    }
     return `Resets in ${formatDuration(resetsAt - now)} (${formatClockTime(resetsAt, now, use24h)})`;
 }
 
@@ -42,9 +46,11 @@ export function percentLeft(utilization) {
 }
 
 export function usageLevel(percent) {
-    if (percent <= CRITICAL_PERCENT_LEFT)
+    if (percent <= CRITICAL_PERCENT_LEFT) {
         return 'critical';
-    if (percent <= WARNING_PERCENT_LEFT)
+    }
+    if (percent <= WARNING_PERCENT_LEFT) {
         return 'warning';
+    }
     return 'normal';
 }

@@ -30,3 +30,11 @@ gnome-extensions enable claude-usage@gurney.dev
 ```sh
 make test
 ```
+
+## Lint
+
+```sh
+bun install
+bun run lint
+bun run format
+```

@@ -35,207 +35,231 @@ function isCancelled(error) {
 }
 
 const LimitItem = GObject.registerClass(
-class LimitItem extends PopupMenu.PopupBaseMenuItem {
-    constructor(limit, now, use24h) {
-        super({reactive: false, can_focus: false});
+    class LimitItem extends PopupMenu.PopupBaseMenuItem {
+        constructor(limit, now, use24h) {
+            super({reactive: false, can_focus: false});
 
-        const box = new St.BoxLayout({
-            orientation: Clutter.Orientation.VERTICAL,
-            style_class: 'claude-usage-limit',
-            x_expand: true,
-        });
-        this.add_child(box);
+            const box = new St.BoxLayout({
+                orientation: Clutter.Orientation.VERTICAL,
+                style_class: 'claude-usage-limit',
+                x_expand: true,
+            });
+            this.add_child(box);
 
-        const left = percentLeft(limit.utilization);
-        const header = new St.BoxLayout();
-        header.add_child(new St.Label({text: limit.title, style_class: 'claude-usage-title', x_expand: true}));
-        header.add_child(new St.Label({text: `${left}% left`}));
-        box.add_child(header);
+            const left = percentLeft(limit.utilization);
+            const header = new St.BoxLayout();
+            header.add_child(new St.Label({text: limit.title, style_class: 'claude-usage-title', x_expand: true}));
+            header.add_child(new St.Label({text: `${left}% left`}));
+            box.add_child(header);
 
-        box.add_child(new BarLevel({
-            style_class: `claude-usage-bar ${usageLevel(left)}`,
-            value: left / 100,
-            x_expand: true,
-        }));
-        box.add_child(new St.Label({
-            text: formatReset(limit.resetsAt, now, use24h),
-            style_class: 'claude-usage-reset',
-            opacity: DIM_OPACITY,
-        }));
+            box.add_child(
+                new BarLevel({
+                    style_class: `claude-usage-bar ${usageLevel(left)}`,
+                    value: left / 100,
+                    x_expand: true,
+                })
+            );
+            box.add_child(
+                new St.Label({
+                    text: formatReset(limit.resetsAt, now, use24h),
+                    style_class: 'claude-usage-reset',
+                    opacity: DIM_OPACITY,
+                })
+            );
+        }
     }
-});
+);
 
 const Indicator = GObject.registerClass(
-class Indicator extends PanelMenu.Button {
-    constructor(extension) {
-        super(0.5, 'Claude Usage');
+    class Indicator extends PanelMenu.Button {
+        constructor(extension) {
+            super(0.5, 'Claude Usage');
 
-        this._icon = new St.Icon({
-            gicon: Gio.FileIcon.new(extension.dir.resolve_relative_path('icons/claude-usage-symbolic.svg')),
-            style_class: 'system-status-icon claude-usage-icon',
-        });
-        this.add_child(this._icon);
+            this._icon = new St.Icon({
+                gicon: Gio.FileIcon.new(extension.dir.resolve_relative_path('icons/claude-usage-symbolic.svg')),
+                style_class: 'system-status-icon claude-usage-icon',
+            });
+            this.add_child(this._icon);
 
-        this._limitsSection = new PopupMenu.PopupMenuSection();
-        this.menu.addMenuItem(this._limitsSection);
-        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-        this._statusItem = new PopupMenu.PopupMenuItem('', {reactive: false, can_focus: false});
-        this._statusItem.label.add_style_class_name('claude-usage-status');
-        this._statusItem.label.clutter_text.line_wrap = true;
-        this.menu.addMenuItem(this._statusItem);
+            this._limitsSection = new PopupMenu.PopupMenuSection();
+            this.menu.addMenuItem(this._limitsSection);
+            this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+            this._statusItem = new PopupMenu.PopupMenuItem('', {reactive: false, can_focus: false});
+            this._statusItem.label.add_style_class_name('claude-usage-status');
+            this._statusItem.label.clutter_text.line_wrap = true;
+            this.menu.addMenuItem(this._statusItem);
 
-        this._interfaceSettings = new Gio.Settings({schema_id: 'org.gnome.desktop.interface'});
-        this._session = new Soup.Session({user_agent: extension.uuid, timeout: HTTP_TIMEOUT_SECONDS});
-        this._cancellable = new Gio.Cancellable();
-        this._limits = null;
-        this._updatedAt = null;
-        this._error = null;
-        this._refreshing = false;
-        this._refreshQueued = false;
-        this._renewing = false;
-        this._lastRenewalAt = -Infinity;
-        // {token, until, error}: the access token the server last rejected or
-        // rate limited, which isn't sent again until `until`.
-        this._blocked = null;
-
-        this._credentialsMonitor = Gio.File.new_for_path(CREDENTIALS_PATH).monitor_file(Gio.FileMonitorFlags.NONE, null);
-        this._credentialsMonitor.connect('changed', (_monitor, file, _otherFile, event) => {
-            // Claude Code replaces the file when it renews the sign-in, and deletes it on sign-out.
-            // Replacing the file also reports it as deleted, but it exists by then.
-            if (event === Gio.FileMonitorEvent.CHANGES_DONE_HINT ||
-                (event === Gio.FileMonitorEvent.DELETED && !file.query_exists(null)))
-                this._refresh();
-        });
-
-        this.menu.connect('open-state-changed', (_menu, open) => {
-            if (!open)
-                return;
-            this._render();
-            if (this._updatedAt === null || Date.now() - this._updatedAt > REFRESH_ON_OPEN_AFTER_MS)
-                this._refresh();
-        });
-
-        this._timerId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, REFRESH_INTERVAL_SECONDS, () => {
-            this._refresh();
-            return GLib.SOURCE_CONTINUE;
-        });
-
-        this._render();
-        this._refresh();
-    }
-
-    async _refresh() {
-        // A renewal ends with a refresh of its own.
-        if (this._renewing)
-            return;
-        if (this._refreshing) {
-            this._refreshQueued = true;
-            return;
-        }
-        this._refreshing = true;
-        try {
-            this._limits = await this._fetch();
-            this._updatedAt = Date.now();
+            this._interfaceSettings = new Gio.Settings({schema_id: 'org.gnome.desktop.interface'});
+            this._session = new Soup.Session({user_agent: extension.uuid, timeout: HTTP_TIMEOUT_SECONDS});
+            this._cancellable = new Gio.Cancellable();
+            this._limits = null;
+            this._updatedAt = null;
             this._error = null;
-        } catch (e) {
-            if (isCancelled(e))
-                return;
-            if (!(e instanceof UsageError))
-                console.error(e);
-            this._error = e;
-        } finally {
             this._refreshing = false;
-        }
-        this._render();
-
-        if (this._refreshQueued) {
             this._refreshQueued = false;
+            this._renewing = false;
+            this._lastRenewalAt = -Infinity;
+            // {token, until, error}: the access token the server last rejected or
+            // rate limited, which isn't sent again until `until`.
+            this._blocked = null;
+
+            this._credentialsMonitor = Gio.File.new_for_path(CREDENTIALS_PATH).monitor_file(
+                Gio.FileMonitorFlags.NONE,
+                null
+            );
+            this._credentialsMonitor.connect('changed', (_monitor, file, _otherFile, event) => {
+                // Claude Code replaces the file when it renews the sign-in, and deletes it on sign-out.
+                // Replacing the file also reports it as deleted, but it exists by then.
+                if (
+                    event === Gio.FileMonitorEvent.CHANGES_DONE_HINT ||
+                    (event === Gio.FileMonitorEvent.DELETED && !file.query_exists(null))
+                ) {
+                    this._refresh();
+                }
+            });
+
+            this.menu.connect('open-state-changed', (_menu, open) => {
+                if (!open) {
+                    return;
+                }
+                this._render();
+                if (this._updatedAt === null || Date.now() - this._updatedAt > REFRESH_ON_OPEN_AFTER_MS) {
+                    this._refresh();
+                }
+            });
+
+            this._timerId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, REFRESH_INTERVAL_SECONDS, () => {
+                this._refresh();
+                return GLib.SOURCE_CONTINUE;
+            });
+
+            this._render();
             this._refresh();
         }
-    }
 
-    async _fetch() {
-        const signIn = await readSignIn(this._cancellable);
-        const blocked = this._blocked;
-        if (blocked !== null && signIn.accessToken === blocked.token && Date.now() < blocked.until) {
-            if (blocked.error instanceof SignInExpiredError)
-                this._renewIfDue();
-            throw blocked.error;
-        }
-
-        try {
-            return await fetchUsage(this._session, signIn, this._cancellable);
-        } catch (e) {
-            if (e instanceof SignInExpiredError) {
-                this._blocked = {token: signIn.accessToken, until: Date.now() + REJECTED_TOKEN_RETRY_MS, error: e};
-                this._renewIfDue();
-            } else if (e instanceof RateLimitedError && e.retryAfterMs !== null) {
-                this._blocked = {token: signIn.accessToken, until: Date.now() + e.retryAfterMs, error: e};
-            }
-            throw e;
-        }
-    }
-
-    _renewIfDue() {
-        if (Date.now() - this._lastRenewalAt >= RENEWAL_COOLDOWN_MS)
-            this._renewSignIn();
-    }
-
-    async _renewSignIn() {
-        this._lastRenewalAt = Date.now();
-        this._renewing = true;
-        try {
-            await renewSignIn(this._cancellable);
-        } catch (e) {
-            if (isCancelled(e))
+        async _refresh() {
+            // A renewal ends with a refresh of its own.
+            if (this._renewing) {
                 return;
-            console.error(e);
-        } finally {
-            this._renewing = false;
+            }
+            if (this._refreshing) {
+                this._refreshQueued = true;
+                return;
+            }
+            this._refreshing = true;
+            try {
+                this._limits = await this._fetch();
+                this._updatedAt = Date.now();
+                this._error = null;
+            } catch (e) {
+                if (isCancelled(e)) {
+                    return;
+                }
+                if (!(e instanceof UsageError)) {
+                    console.error(e);
+                }
+                this._error = e;
+            } finally {
+                this._refreshing = false;
+            }
+            this._render();
+
+            if (this._refreshQueued) {
+                this._refreshQueued = false;
+                this._refresh();
+            }
         }
-        this._refresh();
+
+        async _fetch() {
+            const signIn = await readSignIn(this._cancellable);
+            const blocked = this._blocked;
+            if (blocked !== null && signIn.accessToken === blocked.token && Date.now() < blocked.until) {
+                if (blocked.error instanceof SignInExpiredError) {
+                    this._renewIfDue();
+                }
+                throw blocked.error;
+            }
+
+            try {
+                return await fetchUsage(this._session, signIn, this._cancellable);
+            } catch (e) {
+                if (e instanceof SignInExpiredError) {
+                    this._blocked = {token: signIn.accessToken, until: Date.now() + REJECTED_TOKEN_RETRY_MS, error: e};
+                    this._renewIfDue();
+                } else if (e instanceof RateLimitedError && e.retryAfterMs !== null) {
+                    this._blocked = {token: signIn.accessToken, until: Date.now() + e.retryAfterMs, error: e};
+                }
+                throw e;
+            }
+        }
+
+        _renewIfDue() {
+            if (Date.now() - this._lastRenewalAt >= RENEWAL_COOLDOWN_MS) {
+                this._renewSignIn();
+            }
+        }
+
+        async _renewSignIn() {
+            this._lastRenewalAt = Date.now();
+            this._renewing = true;
+            try {
+                await renewSignIn(this._cancellable);
+            } catch (e) {
+                if (isCancelled(e)) {
+                    return;
+                }
+                console.error(e);
+            } finally {
+                this._renewing = false;
+            }
+            this._refresh();
+        }
+
+        _render() {
+            const now = Date.now();
+            const use24h = this._interfaceSettings.get_string('clock-format') === '24h';
+
+            this._limitsSection.removeAll();
+            for (const limit of this._limits ?? []) {
+                this._limitsSection.addMenuItem(new LimitItem(limit, now, use24h));
+            }
+
+            const lowest = Math.min(100, ...(this._limits ?? []).map(limit => percentLeft(limit.utilization)));
+            this._icon.style_class = `system-status-icon claude-usage-icon ${usageLevel(lowest)}`;
+
+            if (this._renewing) {
+                this._statusItem.label.text = 'Renewing the Claude Code sign-in…';
+            } else if (this._error !== null) {
+                this._statusItem.label.text = this._errorText(now, use24h);
+            } else if (this._limits === null) {
+                this._statusItem.label.text = 'Loading…';
+            } else if (this._limits.length === 0) {
+                this._statusItem.label.text = 'No usage limits reported';
+            } else {
+                this._statusItem.label.text = `Updated ${formatClockTime(this._updatedAt, now, use24h)}`;
+            }
+        }
+
+        _errorText(now, use24h) {
+            const error = this._error;
+            let text = error instanceof UsageError ? error.message : `Couldn't fetch usage: ${error.message}.`;
+            if (error instanceof RateLimitedError && error === this._blocked?.error && this._blocked.until > now) {
+                text += ` Trying again at ${formatClockTime(this._blocked.until, now, use24h)}.`;
+            }
+            if (this._updatedAt !== null) {
+                text += ` Showing usage from ${formatClockTime(this._updatedAt, now, use24h)}.`;
+            }
+            return text;
+        }
+
+        _onDestroy() {
+            GLib.source_remove(this._timerId);
+            this._cancellable.cancel();
+            this._credentialsMonitor.cancel();
+            super._onDestroy();
+        }
     }
-
-    _render() {
-        const now = Date.now();
-        const use24h = this._interfaceSettings.get_string('clock-format') === '24h';
-
-        this._limitsSection.removeAll();
-        for (const limit of this._limits ?? [])
-            this._limitsSection.addMenuItem(new LimitItem(limit, now, use24h));
-
-        const lowest = Math.min(100, ...(this._limits ?? []).map(limit => percentLeft(limit.utilization)));
-        this._icon.style_class = `system-status-icon claude-usage-icon ${usageLevel(lowest)}`;
-
-        if (this._renewing)
-            this._statusItem.label.text = 'Renewing the Claude Code sign-in…';
-        else if (this._error !== null)
-            this._statusItem.label.text = this._errorText(now, use24h);
-        else if (this._limits === null)
-            this._statusItem.label.text = 'Loading…';
-        else if (this._limits.length === 0)
-            this._statusItem.label.text = 'No usage limits reported';
-        else
-            this._statusItem.label.text = `Updated ${formatClockTime(this._updatedAt, now, use24h)}`;
-    }
-
-    _errorText(now, use24h) {
-        const error = this._error;
-        let text = error instanceof UsageError ? error.message : `Couldn't fetch usage: ${error.message}.`;
-        if (error instanceof RateLimitedError && error === this._blocked?.error && this._blocked.until > now)
-            text += ` Trying again at ${formatClockTime(this._blocked.until, now, use24h)}.`;
-        if (this._updatedAt !== null)
-            text += ` Showing usage from ${formatClockTime(this._updatedAt, now, use24h)}.`;
-        return text;
-    }
-
-    _onDestroy() {
-        GLib.source_remove(this._timerId);
-        this._cancellable.cancel();
-        this._credentialsMonitor.cancel();
-        super._onDestroy();
-    }
-});
+);
 
 export default class ClaudeUsageExtension extends Extension {
     enable() {

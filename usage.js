@@ -44,8 +44,9 @@ export async function readSignIn(cancellable) {
     try {
         [contents] = await Gio.File.new_for_path(CREDENTIALS_PATH).load_contents_async(cancellable);
     } catch (e) {
-        if (e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.NOT_FOUND))
+        if (e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.NOT_FOUND)) {
             throw new UsageError(NOT_SIGNED_IN);
+        }
         throw e;
     }
     return parseSignIn(new TextDecoder().decode(contents));
@@ -55,24 +56,27 @@ export function parseSignIn(text) {
     // The file also holds other sign-ins, e.g. for MCP servers. Claude Code
     // empties the tokens when the server rejects a renewal.
     const oauth = JSON.parse(text).claudeAiOauth;
-    if (oauth === undefined || oauth.refreshToken === '')
+    if (oauth === undefined || oauth.refreshToken === '') {
         throw new UsageError(NOT_SIGNED_IN);
+    }
     return {accessToken: oauth.accessToken, subscriptionType: oauth.subscriptionType ?? null};
 }
 
 // Returns the error for an unsuccessful response, or null for a successful one.
 export function responseError(status, retryAfterHeader) {
     switch (status) {
-    case Soup.Status.OK:
-        return null;
-    case Soup.Status.UNAUTHORIZED:
-        return new SignInExpiredError();
-    case Soup.Status.FORBIDDEN:
-        return new UsageError("This Claude Code sign-in isn't allowed to read usage. Try signing in again with `claude auth login`.");
-    case HTTP_TOO_MANY_REQUESTS:
-        return new RateLimitedError(retryAfterHeader === null ? null : Number(retryAfterHeader) * 1000);
-    default:
-        return new UsageError(`Usage request failed with HTTP ${status}.`);
+        case Soup.Status.OK:
+            return null;
+        case Soup.Status.UNAUTHORIZED:
+            return new SignInExpiredError();
+        case Soup.Status.FORBIDDEN:
+            return new UsageError(
+                "This Claude Code sign-in isn't allowed to read usage. Try signing in again with `claude auth login`."
+            );
+        case HTTP_TOO_MANY_REQUESTS:
+            return new RateLimitedError(retryAfterHeader === null ? null : Number(retryAfterHeader) * 1000);
+        default:
+            return new UsageError(`Usage request failed with HTTP ${status}.`);
     }
 }
 
@@ -85,8 +89,9 @@ export async function fetchUsage(session, {accessToken, subscriptionType}, cance
 
     const bytes = await session.send_and_read_async(message, GLib.PRIORITY_DEFAULT, cancellable);
     const error = responseError(message.status_code, message.response_headers.get_one('retry-after'));
-    if (error !== null)
+    if (error !== null) {
         throw error;
+    }
 
     return parseUsage(JSON.parse(new TextDecoder().decode(bytes.get_data())), subscriptionType);
 }
@@ -113,11 +118,13 @@ export async function renewSignIn(cancellable) {
         // next usage request shows whether the renewal worked.
         await proc.wait_async(cancellable);
     } finally {
-        if (timeoutId !== 0)
+        if (timeoutId !== 0) {
             GLib.source_remove(timeoutId);
+        }
     }
-    if (timeoutId === 0)
+    if (timeoutId === 0) {
         throw new Error(`claude doctor didn't finish within ${RENEWAL_TIMEOUT_SECONDS}s`);
+    }
 }
 
 function parseTime(time) {
@@ -129,8 +136,9 @@ export function parseUsage(data, subscriptionType) {
         ['five_hour', 'Current session'],
         ['seven_day', 'Current week (all models)'],
     ];
-    if (PLANS_WITH_SONNET_LIMIT.includes(subscriptionType))
+    if (PLANS_WITH_SONNET_LIMIT.includes(subscriptionType)) {
         windows.push(['seven_day_sonnet', 'Current week (Sonnet only)']);
+    }
 
     const limits = windows
         .filter(([key]) => data[key] && data[key].utilization !== null)
