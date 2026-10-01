@@ -2,6 +2,7 @@
   "name": "gnome-claude-usage",
   "type": "module",
   "private": true,
+  "license": "MIT",
   "scripts": {
     "lint": "biome lint .",
     "lint:fix": "biome lint --write .",
