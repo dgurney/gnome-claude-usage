@@ -108,7 +108,7 @@ const Indicator = GObject.registerClass(
             this._interfaceSettings = new Gio.Settings({schema_id: 'org.gnome.desktop.interface'});
             this._session = new Soup.Session({user_agent: extension.uuid, timeout: HTTP_TIMEOUT_SECONDS});
             this._cancellable = new Gio.Cancellable();
-            this._limits = null;
+            this._usage = null;
             this._updatedAt = null;
             this._error = null;
             this._refreshing = false;
@@ -224,7 +224,7 @@ const Indicator = GObject.registerClass(
             }
             this._refreshing = true;
             try {
-                this._limits = await this._fetch();
+                this._usage = await this._fetch();
                 this._updatedAt = Date.now();
                 this._error = null;
             } catch (e) {
@@ -296,7 +296,13 @@ const Indicator = GObject.registerClass(
             const use24h = this._interfaceSettings.get_string('clock-format') === '24h';
 
             this._limitsSection.removeAll();
-            for (const limit of this._limits ?? []) {
+            if (this._usage !== null && this._usage.planName !== null) {
+                const planItem = new PopupMenu.PopupMenuItem(this._usage.planName, {reactive: false, can_focus: false});
+                planItem.label.add_style_class_name('claude-usage-plan');
+                planItem.label.opacity = DIM_OPACITY;
+                this._limitsSection.addMenuItem(planItem);
+            }
+            for (const limit of this._usage?.limits ?? []) {
                 this._limitsSection.addMenuItem(new LimitItem(limit, now, use24h));
             }
 
@@ -306,9 +312,9 @@ const Indicator = GObject.registerClass(
                 this._statusItem.label.text = 'Renewing the Claude Code sign-in…';
             } else if (this._error !== null) {
                 this._statusItem.label.text = this._errorText(now, use24h);
-            } else if (this._limits === null) {
+            } else if (this._usage === null) {
                 this._statusItem.label.text = 'Loading…';
-            } else if (this._limits.length === 0) {
+            } else if (this._usage.limits.length === 0) {
                 this._statusItem.label.text = 'No usage limits reported';
             } else {
                 this._statusItem.label.text = `Updated ${formatClockTime(this._updatedAt, now, use24h)}`;
@@ -317,13 +323,13 @@ const Indicator = GObject.registerClass(
 
         _renderPanel() {
             this._panelBox.destroy_all_children();
-            const shown = (this._limits ?? []).filter(limit => limit.panelLabel !== null);
+            const shown = (this._usage?.limits ?? []).filter(limit => limit.panelLabel !== null);
             this._panelBox.opacity = this._error !== null && shown.length > 0 ? DIM_OPACITY : 255;
             if (shown.length === 0) {
                 let text = 'Claude';
                 if (this._error !== null) {
                     text += ' !';
-                } else if (this._limits === null) {
+                } else if (this._usage === null) {
                     text += ' …';
                 }
                 this._panelBox.add_child(new St.Label({text, y_align: Clutter.ActorAlign.CENTER}));

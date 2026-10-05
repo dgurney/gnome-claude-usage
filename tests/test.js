@@ -1,7 +1,15 @@
 // Run with `make test`, which pins TZ and locale so clock times are deterministic.
 import {formatClockTime, formatDuration, formatReset, percentLeft, usageLevel} from '../format.js';
 import {parseServiceStatus} from '../status.js';
-import {RateLimitedError, SignInExpiredError, UsageError, parseSignIn, parseUsage, responseError} from '../usage.js';
+import {
+    RateLimitedError,
+    SignInExpiredError,
+    UsageError,
+    parseSignIn,
+    parseUsage,
+    planName,
+    responseError,
+} from '../usage.js';
 
 let failures = 0;
 
@@ -154,10 +162,16 @@ check(
     'sign-in',
     parseSignIn(
         JSON.stringify({
-            claudeAiOauth: {accessToken: 'access', refreshToken: 'refresh', expiresAt: 1, subscriptionType: 'pro'},
+            claudeAiOauth: {
+                accessToken: 'access',
+                refreshToken: 'refresh',
+                expiresAt: 1,
+                subscriptionType: 'max',
+                rateLimitTier: 'default_claude_max_5x',
+            },
         })
     ),
-    {accessToken: 'access', subscriptionType: 'pro'}
+    {accessToken: 'access', subscriptionType: 'max', rateLimitTier: 'default_claude_max_5x'}
 );
 check(
     'sign-in with unknown plan',
@@ -165,9 +179,23 @@ check(
         JSON.stringify({
             claudeAiOauth: {accessToken: 'access', refreshToken: 'refresh', expiresAt: 1},
         })
-    ).subscriptionType,
-    null
+    ),
+    {accessToken: 'access', subscriptionType: null, rateLimitTier: null}
 );
+
+function plan(subscriptionType, rateLimitTier) {
+    return planName({subscriptionType, rateLimitTier});
+}
+check('Max 5x plan', plan('max', 'default_claude_max_5x'), 'Claude Max 5x');
+check('Max 20x plan', plan('max', 'default_claude_max_20x'), 'Claude Max 20x');
+check('Max plan with unknown tier', plan('max', null), 'Claude Max');
+check('Pro plan', plan('pro', 'default_claude_ai'), 'Claude Pro');
+check('Team premium seat', plan('team', 'default_claude_max_5x'), 'Claude Team (Premium seat)');
+check('Team plan with unknown seat', plan('team', null), 'Claude Team');
+check('Enterprise plan', plan('enterprise', null), 'Claude Enterprise');
+check('unknown plan', plan(null, null), null);
+check('unrecognized plan', plan('free', null), null);
+
 check('only other sign-ins', signInError(JSON.stringify({mcpOAuth: {}})), NOT_SIGNED_IN);
 check(
     'sign-in emptied after a rejected renewal',

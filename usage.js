@@ -38,7 +38,8 @@ export class RateLimitedError extends UsageError {
 
 const NOT_SIGNED_IN = 'Claude Code is not signed in. Run `claude` to sign in.';
 
-// Returns the Claude Code sign-in as {accessToken, subscriptionType}.
+// Returns the Claude Code sign-in as {accessToken, subscriptionType, rateLimitTier},
+// where rateLimitTier is the plan's usage tier, e.g. "default_claude_max_5x".
 export async function readSignIn(cancellable) {
     let contents;
     try {
@@ -59,7 +60,35 @@ export function parseSignIn(text) {
     if (oauth === undefined || oauth.refreshToken === '') {
         throw new UsageError(NOT_SIGNED_IN);
     }
-    return {accessToken: oauth.accessToken, subscriptionType: oauth.subscriptionType ?? null};
+    return {
+        accessToken: oauth.accessToken,
+        subscriptionType: oauth.subscriptionType ?? null,
+        rateLimitTier: oauth.rateLimitTier ?? null,
+    };
+}
+
+// Returns the plan's name, as Claude Code shows it plus the Max tier or Team
+// premium seat, or null when the plan is unknown.
+export function planName({subscriptionType, rateLimitTier}) {
+    switch (subscriptionType) {
+        case 'max':
+            switch (rateLimitTier) {
+                case 'default_claude_max_5x':
+                    return 'Claude Max 5x';
+                case 'default_claude_max_20x':
+                    return 'Claude Max 20x';
+                default:
+                    return 'Claude Max';
+            }
+        case 'pro':
+            return 'Claude Pro';
+        case 'team':
+            return rateLimitTier === 'default_claude_max_5x' ? 'Claude Team (Premium seat)' : 'Claude Team';
+        case 'enterprise':
+            return 'Claude Enterprise';
+        default:
+            return null;
+    }
 }
 
 // Returns the error for an unsuccessful response, or null for a successful one.
@@ -80,10 +109,12 @@ export function responseError(status, retryAfterHeader) {
     }
 }
 
-// Returns the usage limits as [{title, panelLabel, utilization, resetsAt}], where
+// Returns the usage as {planName, limits}, where planName is null when the plan
+// is unknown. limits is [{title, panelLabel, utilization, resetsAt}], where
 // panelLabel is the short label for the top bar, or null for limits not shown
 // there, utilization is the percentage used and resetsAt is in ms since the epoch.
-export async function fetchUsage(session, {accessToken, subscriptionType}, cancellable) {
+export async function fetchUsage(session, signIn, cancellable) {
+    const {accessToken, subscriptionType} = signIn;
     const message = Soup.Message.new('GET', USAGE_URL);
     message.request_headers.append('Authorization', `Bearer ${accessToken}`);
     message.request_headers.append('anthropic-beta', 'oauth-2025-04-20');
@@ -94,7 +125,10 @@ export async function fetchUsage(session, {accessToken, subscriptionType}, cance
         throw error;
     }
 
-    return parseUsage(JSON.parse(new TextDecoder().decode(bytes.get_data())), subscriptionType);
+    return {
+        planName: planName(signIn),
+        limits: parseUsage(JSON.parse(new TextDecoder().decode(bytes.get_data())), subscriptionType),
+    };
 }
 
 // Has Claude Code renew its sign-in. `claude doctor` renews an expired sign-in

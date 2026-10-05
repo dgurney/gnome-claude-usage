@@ -9,10 +9,12 @@
   spacing: 6px;
 }
 
-.claude-usage-title {
+.claude-usage-title,
+.claude-usage-plan {
   font-weight: bold;
 }
 
+.claude-usage-plan,
 .claude-usage-reset,
 .claude-usage-incident {
   font-size: 0.9em;

@@ -1,8 +1,8 @@
 # Claude Usage
 
 A GNOME Shell 51 extension that shows how much of your Claude session and
-weekly usage limits is left in the top bar. Click it to see every limit and
-when each one resets. The menu also shows the status from
+weekly usage limits is left in the top bar. Click it to see your plan, every
+limit and when each one resets. The menu also shows the status from
 [status.claude.com](https://status.claude.com) and any unresolved incidents.
 Click the status to open the status page.
 
