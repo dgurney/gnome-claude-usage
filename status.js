@@ -7,8 +7,9 @@ Gio._promisify(Soup.Session.prototype, 'send_and_read_async');
 export const STATUS_PAGE_URL = 'https://status.claude.com';
 const SUMMARY_URL = `${STATUS_PAGE_URL}/api/v2/summary.json`;
 
-// Returns the status of Claude's services as {description, incidents}, where
-// incidents holds the names of the unresolved incidents.
+// Returns the status of Claude's services as {description, level, incidents},
+// where level is 'ok', 'warning', 'critical' or null if unknown, and incidents
+// holds the names of the unresolved incidents.
 export async function fetchServiceStatus(session, cancellable) {
     const message = Soup.Message.new('GET', SUMMARY_URL);
     const bytes = await session.send_and_read_async(message, GLib.PRIORITY_DEFAULT, cancellable);
@@ -18,6 +19,12 @@ export async function fetchServiceStatus(session, cancellable) {
     return parseServiceStatus(JSON.parse(new TextDecoder().decode(bytes.get_data())));
 }
 
+const LEVELS = {none: 'ok', minor: 'warning', major: 'critical', critical: 'critical'};
+
 export function parseServiceStatus(data) {
-    return {description: data.status.description, incidents: data.incidents.map(incident => incident.name)};
+    return {
+        description: data.status.description,
+        level: LEVELS[data.status.indicator] ?? null,
+        incidents: data.incidents.map(incident => incident.name),
+    };
 }

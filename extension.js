@@ -186,11 +186,21 @@ const Indicator = GObject.registerClass(
         }
 
         _renderServiceStatus() {
-            const labels = [];
+            const rows = [];
+            let description = null;
             if (this._serviceStatus !== null) {
-                labels.push(wrappedLabel(this._serviceStatus.description));
+                const summary = new St.BoxLayout({style_class: 'claude-usage-service-summary'});
+                summary.add_child(
+                    new St.Widget({
+                        style_class: `claude-usage-service-dot ${this._serviceStatus.level ?? ''}`,
+                        y_align: Clutter.ActorAlign.CENTER,
+                    })
+                );
+                description = wrappedLabel(this._serviceStatus.description, {x_expand: true});
+                summary.add_child(description);
+                rows.push(summary);
                 for (const incident of this._serviceStatus.incidents) {
-                    labels.push(wrappedLabel(incident, {style_class: 'claude-usage-incident', opacity: DIM_OPACITY}));
+                    rows.push(wrappedLabel(incident, {style_class: 'claude-usage-incident', opacity: DIM_OPACITY}));
                 }
             }
             if (this._serviceError !== null) {
@@ -200,17 +210,17 @@ const Indicator = GObject.registerClass(
                     const use24h = this._interfaceSettings.get_string('clock-format') === '24h';
                     text += ` Showing the status from ${formatClockTime(this._serviceCheckedAt, now, use24h)}.`;
                 }
-                labels.push(wrappedLabel(text));
+                rows.push(wrappedLabel(text));
             }
-            if (labels.length === 0) {
-                labels.push(wrappedLabel('Checking the Claude status…'));
+            if (rows.length === 0) {
+                rows.push(wrappedLabel('Checking the Claude status…'));
             }
 
             this._serviceBox.destroy_all_children();
-            for (const label of labels) {
-                this._serviceBox.add_child(label);
+            for (const row of rows) {
+                this._serviceBox.add_child(row);
             }
-            this._serviceItem.label_actor = labels[0];
+            this._serviceItem.label_actor = description ?? rows[0];
         }
 
         async _refresh() {

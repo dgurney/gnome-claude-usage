@@ -224,8 +224,22 @@ check(
         scheduled_maintenances: [],
         status: {indicator: 'minor', description: 'Partial System Outage'},
     }),
-    {description: 'Partial System Outage', incidents: ['Elevated errors on Claude Code']}
+    {description: 'Partial System Outage', level: 'warning', incidents: ['Elevated errors on Claude Code']}
 );
+
+for (const [indicator, level] of [
+    ['none', 'ok'],
+    ['minor', 'warning'],
+    ['major', 'critical'],
+    ['critical', 'critical'],
+    ['maintenance', null],
+]) {
+    check(
+        `parseServiceStatus level for ${indicator}`,
+        parseServiceStatus({incidents: [], status: {indicator, description: 'Status'}}).level,
+        level
+    );
+}
 
 if (failures > 0) {
     throw new Error(`${failures} test(s) failed`);

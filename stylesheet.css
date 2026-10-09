@@ -9,6 +9,29 @@
   spacing: 6px;
 }
 
+.claude-usage-service-summary {
+  spacing: 8px;
+}
+
+.claude-usage-service-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 4px;
+  background-color: rgba(127, 127, 127, 0.6);
+}
+
+.claude-usage-service-dot.ok {
+  background-color: #2ec27e;
+}
+
+.claude-usage-service-dot.warning {
+  background-color: #e5a50a;
+}
+
+.claude-usage-service-dot.critical {
+  background-color: #e01b24;
+}
+
 .claude-usage-title,
 .claude-usage-plan {
   font-weight: bold;
