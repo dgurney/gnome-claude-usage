@@ -186,8 +186,8 @@ check(
 function plan(subscriptionType, rateLimitTier) {
     return planName({subscriptionType, rateLimitTier});
 }
-check('Max 5x plan', plan('max', 'default_claude_max_5x'), 'Claude Max 5x');
-check('Max 20x plan', plan('max', 'default_claude_max_20x'), 'Claude Max 20x');
+check('Max plan', plan('max', 'default_claude_max_5x'), 'Claude Max');
+check('Ultra plan', plan('max', 'default_claude_max_20x'), 'Claude Ultra');
 check('Max plan with unknown tier', plan('max', null), 'Claude Max');
 check('Pro plan', plan('pro', 'default_claude_ai'), 'Claude Pro');
 check('Team premium seat', plan('team', 'default_claude_max_5x'), 'Claude Team (Premium seat)');

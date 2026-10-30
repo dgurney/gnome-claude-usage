@@ -39,7 +39,8 @@ export class RateLimitedError extends UsageError {
 const NOT_SIGNED_IN = 'Claude Code is not signed in. Run `claude` to sign in.';
 
 // Returns the Claude Code sign-in as {accessToken, subscriptionType, rateLimitTier},
-// where rateLimitTier is the plan's usage tier, e.g. "default_claude_max_5x".
+// where rateLimitTier is the plan's usage tier, e.g. "default_claude_max_5x" for
+// Max or "default_claude_max_20x" for Ultra.
 export async function readSignIn(cancellable) {
     let contents;
     try {
@@ -67,19 +68,12 @@ export function parseSignIn(text) {
     };
 }
 
-// Returns the plan's name, as Claude Code shows it plus the Max tier or Team
-// premium seat, or null when the plan is unknown.
+// Returns the plan's name, as the Claude app shows it plus the Team premium
+// seat, or null when the plan is unknown. Both Max and Ultra are "max" plans.
 export function planName({subscriptionType, rateLimitTier}) {
     switch (subscriptionType) {
         case 'max':
-            switch (rateLimitTier) {
-                case 'default_claude_max_5x':
-                    return 'Claude Max 5x';
-                case 'default_claude_max_20x':
-                    return 'Claude Max 20x';
-                default:
-                    return 'Claude Max';
-            }
+            return rateLimitTier === 'default_claude_max_20x' ? 'Claude Ultra' : 'Claude Max';
         case 'pro':
             return 'Claude Pro';
         case 'team':
