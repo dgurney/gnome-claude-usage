@@ -92,7 +92,8 @@ const Indicator = GObject.registerClass(
             this._statusItem.label.add_style_class_name('claude-usage-status');
             this._statusItem.label.clutter_text.line_wrap = true;
             this.menu.addMenuItem(this._statusItem);
-            this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+            this._serviceSeparator = new PopupMenu.PopupSeparatorMenuItem();
+            this.menu.addMenuItem(this._serviceSeparator);
             this._serviceItem = new PopupMenu.PopupBaseMenuItem();
             this._serviceBox = new St.BoxLayout({
                 orientation: Clutter.Orientation.VERTICAL,
@@ -106,6 +107,12 @@ const Indicator = GObject.registerClass(
             this.menu.addMenuItem(this._serviceItem);
 
             this._interfaceSettings = new Gio.Settings({schema_id: 'org.gnome.desktop.interface'});
+            this._settings = extension.getSettings();
+            this._settings.bind('show-service-status', this._serviceSeparator, 'visible', Gio.SettingsBindFlags.GET);
+            this._settings.bind('show-service-status', this._serviceItem, 'visible', Gio.SettingsBindFlags.GET);
+            this._settingsChangedId = this._settings.connect('changed::show-service-status', () => {
+                this._refreshStaleServiceStatus();
+            });
             this._session = new Soup.Session({user_agent: extension.uuid, timeout: HTTP_TIMEOUT_SECONDS});
             this._cancellable = new Gio.Cancellable();
             this._usage = null;
@@ -147,9 +154,7 @@ const Indicator = GObject.registerClass(
                 if (this._updatedAt === null || Date.now() - this._updatedAt > REFRESH_ON_OPEN_AFTER_MS) {
                     this._refresh();
                 }
-                if (this._serviceCheckedAt === null || Date.now() - this._serviceCheckedAt > REFRESH_ON_OPEN_AFTER_MS) {
-                    this._refreshServiceStatus();
-                }
+                this._refreshStaleServiceStatus();
             });
 
             this._timerId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, REFRESH_INTERVAL_SECONDS, () => {
@@ -164,8 +169,14 @@ const Indicator = GObject.registerClass(
             this._refreshServiceStatus();
         }
 
+        _refreshStaleServiceStatus() {
+            if (this._serviceCheckedAt === null || Date.now() - this._serviceCheckedAt > REFRESH_ON_OPEN_AFTER_MS) {
+                this._refreshServiceStatus();
+            }
+        }
+
         async _refreshServiceStatus() {
-            if (this._checkingService) {
+            if (this._checkingService || !this._settings.get_boolean('show-service-status')) {
                 return;
             }
             this._checkingService = true;
@@ -382,6 +393,7 @@ const Indicator = GObject.registerClass(
 
         _onDestroy() {
             GLib.source_remove(this._timerId);
+            this._settings.disconnect(this._settingsChangedId);
             this._cancellable.cancel();
             this._credentialsMonitor.cancel();
             super._onDestroy();

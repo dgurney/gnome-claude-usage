@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.claude-usage" path="/org/gnome/shell/extensions/claude-usage/">
+    <key name="show-service-status" type="b">
+      <default>true</default>
+      <summary>Show the Claude status</summary>
+      <description>Show the status from status.claude.com in the menu.</description>
+    </key>
+  </schema>
+</schemalist>
